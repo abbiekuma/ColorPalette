@@ -6,6 +6,7 @@ struct SlotView: View {
 
     @State private var showingColorPicker = false
     @State private var pickerColor = Color.white
+    @State private var didCopyHex = false
 
     // LEARN: 从 store 实时查找格子，保证改色后 UI 立刻更新
     private var slot: PaletteSlot? {
@@ -51,10 +52,17 @@ struct SlotView: View {
         RoundedRectangle(cornerRadius: 12)
             .fill(savedColor.swiftUIColor)
             .overlay(alignment: .bottom) {
-                Text(savedColor.hex)
-                    .font(.caption.monospaced().bold())
-                    .foregroundStyle(contrastingTextColor(for: savedColor))
-                    .padding(.bottom, 8)
+                Button(action: copyHex) {
+                    Text(didCopyHex ? "Copied" : savedColor.hex)
+                        .font(.caption.monospaced().bold())
+                        .foregroundStyle(contrastingTextColor(for: savedColor))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Click to copy HEX")
+                .padding(.bottom, 4)
             }
             .overlay(alignment: .topTrailing) {
                 Menu {
@@ -63,9 +71,7 @@ struct SlotView: View {
                         pickerColor = savedColor.swiftUIColor
                         showingColorPicker = true
                     }
-                    Button("Copy HEX") {
-                        store.copyHexToClipboard(for: slotID)
-                    }
+                    Button("Copy HEX") { copyHex() }
                     Divider()
                     Button("Clear", role: .destructive) {
                         store.clearColor(for: slotID)
@@ -80,10 +86,7 @@ struct SlotView: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
             }
-            .onTapGesture {
-                store.copyHexToClipboard(for: slotID)
-            }
-            .help("Click to copy HEX. Use the menu to change or clear.")
+            .help("Click the HEX code to copy. Use the menu to change or clear.")
     }
 
     // MARK: - 色板 Sheet
@@ -126,6 +129,15 @@ struct SlotView: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+    }
+
+    private func copyHex() {
+        store.copyHexToClipboard(for: slotID)
+        didCopyHex = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.2))
+            didCopyHex = false
+        }
     }
 
     private func startEyedropper() {
