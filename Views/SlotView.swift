@@ -4,8 +4,6 @@ struct SlotView: View {
     @Environment(PaletteStore.self) private var store
     let slotID: UUID
 
-    @State private var showingColorPicker = false
-    @State private var pickerColor = Color.white
     @State private var didCopyHex = false
 
     // LEARN: 从 store 实时查找格子，保证改色后 UI 立刻更新
@@ -21,26 +19,54 @@ struct SlotView: View {
                 emptySlotView
             }
         }
-        .frame(height: 120)
-        .sheet(isPresented: $showingColorPicker) {
-            colorPickerSheet
+        .frame(height: PaletteTheme.slotHeight)
+        .overlay(alignment: .topLeading) {
+            if slot?.color != nil {
+                Menu {
+                    Button("Pick Color") { startEyedropper() }
+                    Button("Choose Color") { startColorPanel() }
+                    Button("Copy HEX") { copyHex() }
+                    Divider()
+                    Button("Clear", role: .destructive) {
+                        store.clearColor(for: slotID)
+                    }
+                } label: {
+                    CuteMenuButton()
+                }
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .offset(x: 8, y: 8)
+            }
         }
+        .overlay(alignment: .topTrailing) {
+            if store.canRemoveSlot {
+                CuteDeleteButton {
+                    store.removeSlot(id: slotID)
+                }
+                .offset(x: 6, y: -6)
+            }
+        }
+        .padding(.trailing, PaletteTheme.chunk)
+        .padding(.bottom, PaletteTheme.chunk)
     }
 
     // MARK: - 空格子
 
     private var emptySlotView: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6]))
-            .foregroundStyle(.secondary.opacity(0.6))
+        RoundedRectangle(cornerRadius: PaletteTheme.corner, style: .continuous)
+            .fill(PaletteTheme.creamSoft.opacity(0.7))
             .overlay {
-                VStack(spacing: 8) {
-                    pickColorButton(title: "Pick", systemImage: "eyedropper") {
+                DashedRoundedFrame()
+                    .opacity(0.55)
+            }
+            .shadow(color: PaletteTheme.cocoa.opacity(0.08), radius: 6, x: 2, y: 4)
+            .overlay {
+                VStack(spacing: 10) {
+                    CutePillButton(title: "Pick", systemImage: "eyedropper") {
                         startEyedropper()
                     }
-                    pickColorButton(title: "Palette", systemImage: "paintpalette") {
-                        pickerColor = .white
-                        showingColorPicker = true
+                    CutePillButton(title: "Palette", systemImage: "paintpalette.fill") {
+                        startColorPanel()
                     }
                 }
             }
@@ -49,87 +75,35 @@ struct SlotView: View {
     // MARK: - 已填色
 
     private func filledSlotView(_ savedColor: SavedColor) -> some View {
-        RoundedRectangle(cornerRadius: 12)
+        let blob = RoundedRectangle(cornerRadius: PaletteTheme.corner, style: .continuous)
+
+        return blob
             .fill(savedColor.swiftUIColor)
+            .overlay(
+                blob.stroke(PaletteTheme.frame, lineWidth: 3.5)
+            )
+            .shadow(color: PaletteTheme.cocoa.opacity(0.2), radius: 10, x: 4, y: 8)
             .overlay(alignment: .bottom) {
                 Button(action: copyHex) {
-                    Text(didCopyHex ? "Copied" : savedColor.hex)
-                        .font(.caption.monospaced().bold())
-                        .foregroundStyle(contrastingTextColor(for: savedColor))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
+                    Text(didCopyHex ? "copied ♡" : savedColor.hex)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(PaletteTheme.cocoa)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(PaletteTheme.creamSoft.opacity(0.92))
+                        )
+                        .shadow(color: PaletteTheme.cocoa.opacity(0.14), radius: 3, x: 1, y: 2)
                 }
                 .buttonStyle(.plain)
                 .help("Click to copy HEX")
-                .padding(.bottom, 4)
-            }
-            .overlay(alignment: .topTrailing) {
-                Menu {
-                    Button("Pick Color") { startEyedropper() }
-                    Button("Choose Color") {
-                        pickerColor = savedColor.swiftUIColor
-                        showingColorPicker = true
-                    }
-                    Button("Copy HEX") { copyHex() }
-                    Divider()
-                    Button("Clear", role: .destructive) {
-                        store.clearColor(for: slotID)
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle.fill")
-                        .font(.body)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(contrastingTextColor(for: savedColor), .white.opacity(0.3))
-                        .padding(8)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
+                .padding(.bottom, 12)
             }
             .help("Click the HEX code to copy. Use the menu to change or clear.")
     }
 
-    // MARK: - 色板 Sheet
-
-    private var colorPickerSheet: some View {
-        VStack(spacing: 20) {
-            Text("Choose Color")
-                .font(.headline)
-
-            // LEARN: ColorPicker 是 SwiftUI 内置的系统色板控件
-            // LEARN: $pickerColor 是 Binding，双向绑定（类似 React 受控组件的 value + onChange）
-            ColorPicker("Color", selection: $pickerColor, supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 200)
-
-            HStack {
-                Button("Cancel") {
-                    showingColorPicker = false
-                }
-                .keyboardShortcut(.cancelAction)
-
-                Button("Confirm") {
-                    store.setColor(SavedColor(color: pickerColor), for: slotID)
-                    showingColorPicker = false
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(width: 280)
-    }
-
     // MARK: - Helpers
-
-    private func pickColorButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.caption)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-    }
 
     private func copyHex() {
         store.copyHexToClipboard(for: slotID)
@@ -137,6 +111,12 @@ struct SlotView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.2))
             didCopyHex = false
+        }
+    }
+
+    private func startColorPanel() {
+        ColorPanelService.shared.pick(initial: slot?.color) { color in
+            store.setColor(color, for: slotID)
         }
     }
 
@@ -149,11 +129,6 @@ struct SlotView: View {
             }
         }
     }
-
-    private func contrastingTextColor(for color: SavedColor) -> Color {
-        let luminance = 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue
-        return luminance > 0.5 ? .black : .white
-    }
 }
 
 #Preview("Empty") {
@@ -162,15 +137,17 @@ struct SlotView: View {
     return SlotView(slotID: id)
         .environment(store)
         .padding()
-        .frame(width: 140)
+        .frame(width: 150)
+        .background(PaletteTheme.cream)
 }
 
 #Preview("Filled") {
     let store = PaletteStore()
     let id = store.slots[0].id
-    store.setColor(SavedColor(red: 0.2, green: 0.5, blue: 0.9), for: id)
+    store.setColor(SavedColor(red: 0.89, green: 0.68, blue: 0.70), for: id)
     return SlotView(slotID: id)
         .environment(store)
         .padding()
-        .frame(width: 140)
+        .frame(width: 150)
+        .background(PaletteTheme.cream)
 }

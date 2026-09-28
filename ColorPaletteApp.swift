@@ -12,6 +12,7 @@ struct ColorPaletteApp: App {
                 // LEARN: .environment 把 store 注入视图树，子视图用 @Environment(PaletteStore.self) 读取
                 .environment(store)
         }
-        .defaultSize(width: 480, height: 420)
+        .defaultSize(width: 520, height: 460)
+        .windowStyle(.hiddenTitleBar)
     }
 }

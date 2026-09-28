@@ -35,6 +35,16 @@ final class PaletteStore {
         save()
     }
 
+    var canRemoveSlot: Bool {
+        slots.count > 1
+    }
+
+    func removeSlot(id: UUID) {
+        guard canRemoveSlot else { return }
+        slots.removeAll { $0.id == id }
+        save()
+    }
+
     func copyHexToClipboard(for slotID: UUID) {
         guard let slot = slots.first(where: { $0.id == slotID }),
               let hex = slot.color?.hex else { return }
